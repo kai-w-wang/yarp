@@ -19,22 +19,24 @@ using Yarp.ReverseProxy.Transforms.Builder;
 BenchmarksEventSource.MeasureAspNetVersion();
 BenchmarksEventSource.MeasureNetCoreAppVersion();
 
-var config = new ConfigurationBuilder()
-    .AddEnvironmentVariables(prefix: "ASPNETCORE_")
+var builder = WebApplication.CreateBuilder(args);
+var cb = builder.Configuration;
+var config = cb.AddEnvironmentVariables(prefix: "ASPNETCORE_")
     .AddCommandLine(args)
     .AddJsonFile("appsettings.json", optional: true)
     .Build();
+var services = builder.Services;
 
-var builder = new WebHostBuilder()
-    .ConfigureLogging(loggerFactory =>
-    {
-        if (Enum.TryParse(config["LogLevel"], out LogLevel logLevel))
-        {
-            Console.WriteLine($"Console Logging enabled with level '{logLevel}'");
-            loggerFactory.AddConsole().SetMinimumLevel(logLevel);
-        }
-    })
-    .UseKestrel((context, kestrelOptions) =>
+// builder.Host.ConfigureLoggingg(logging  =>
+//     {
+//         if (Enum.TryParse(config["LogLevel"], out LogLevel logLevel))
+//         {
+//             Console.WriteLine($"Console Logging enabled with level '{logLevel}'");
+//             logging .AddConsole().SetMinimumLevel(logLevel);
+//         }
+//     });
+
+builder.WebHost.UseKestrel((context, kestrelOptions) =>
     {
         kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
         {
@@ -49,20 +51,17 @@ var builder = new WebHostBuilder()
     })
     ;
 
-builder.Configure(app =>
+var app = builder.Build();
+
+var forwarder = app.Services.GetRequiredService<IHttpForwarder>();
+var clusterUrl = GetClusterUrl();
+var httpClient = new HttpMessageInvoker(CreateHandler());
+var transformer = CreateHttpTransformer(app);
+
+app.Run(async context =>
 {
-    var forwarder = app.ApplicationServices.GetRequiredService<IHttpForwarder>();
-    var clusterUrl = GetClusterUrl();
-    var httpClient = new HttpMessageInvoker(CreateHandler());
-    var transformer = CreateHttpTransformer(app);
-
-    app.Run(async context =>
-    {
-        await forwarder.SendAsync(context, clusterUrl, httpClient, ForwarderRequestConfig.Empty, transformer);
-    });
+    await forwarder.SendAsync(context, clusterUrl, httpClient, ForwarderRequestConfig.Empty, transformer);
 });
-
-builder.Build().Run();
 
 string GetClusterUrl()
 {

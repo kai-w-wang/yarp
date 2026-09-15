@@ -41,14 +41,14 @@ public class BackgroundHostedServiceTests
     {
         var latches = new TestLatches();
 
-        using var host = new WebHostBuilder()
+        using var host = new HostBuilder()
             .ConfigureServices((hbc, services) =>
             {
                 services.AddSingleton<IServer, FakeServer>();
                 services.AddSingleton<IHostedService, FakeBackgroundHostedService>();
                 services.AddSingleton(latches);
             })
-            .Configure(app => { })
+            // .Configure(app => { })
             .Build();
 
         // TODO: figure out why the hosting takes so long to unwind naturally
@@ -69,14 +69,14 @@ public class BackgroundHostedServiceTests
     {
         var context = new TestLatches();
 
-        using var host = new WebHostBuilder()
+        using var host = new HostBuilder()
             .ConfigureServices((hbc, services) =>
             {
                 services.AddSingleton<IServer, FakeServer>();
                 services.AddSingleton<IHostedService, FakeBackgroundHostedService>();
                 services.AddSingleton(context);
             })
-            .Configure(app => { })
+            // .Configure(app => { })
             .Build();
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
